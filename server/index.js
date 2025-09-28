@@ -2,7 +2,9 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { OpenAI } = require("openai");
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 dotenv.config();
 
@@ -11,8 +13,8 @@ if (!process.env.MONGODB_URI) {
   process.exit(1);
 }
 
-if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ OPENAI_API_KEY is not defined in .env");
+if (!process.env.CLIPDROP_API_KEY) {
+  console.error("❌ CLIPDROP_API_KEY is not defined in .env");
   process.exit(1);
 }
 
@@ -22,12 +24,8 @@ app.use(express.json());
 
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const Image = mongoose.model("Image", {
   prompt: String,
@@ -43,19 +41,25 @@ app.post("/api/generate", async (req, res) => {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
-    const response = await openai.images.generate({
-      model: "dall-e-3",
-      prompt,
-      n: 1,
-      size: "1024x1024",
-      response_format: "url",
+    // Generate image with ClipDrop
+    const response = await axios({
+      method: "POST",
+      url: "https://clipdrop-api.co/text-to-image/v1",
+      headers: {
+        "x-api-key": process.env.CLIPDROP_API_KEY,
+      },
+      data: { prompt },
+      responseType: "arraybuffer",
     });
 
-    if (!response.data || response.data.length === 0) {
-      throw new Error("No image data received from OpenAI");
-    }
+    // Save image locally (optional)
+    const fileName = `${Date.now()}.png`;
+    const filePath = path.join(__dirname, "uploads", fileName);
+    fs.mkdirSync(path.join(__dirname, "uploads"), { recursive: true });
+    fs.writeFileSync(filePath, response.data);
 
-    const imageUrl = response.data[0].url;
+    // Return full image URL for frontend compatibility
+    const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${fileName}`;
 
     const newImage = new Image({
       prompt,
@@ -65,13 +69,15 @@ app.post("/api/generate", async (req, res) => {
 
     res.json({ imageUrl });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error:", error.response?.data || error.message);
     res.status(500).json({
       error: "Failed to generate image",
       details: error.message,
     });
   }
 });
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/api/images", async (req, res) => {
   try {
@@ -98,5 +104,5 @@ app.get("/api/images/:id", async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
