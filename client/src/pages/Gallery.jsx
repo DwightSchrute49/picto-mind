@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Gallery = () => {
   const [images, setImages] = useState([]);
@@ -12,9 +14,9 @@ const Gallery = () => {
 
   const fetchImages = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/images');
+      const response = await fetch(`${API_URL}/api/images`);
       if (!response.ok) {
-        throw new Error('Failed to fetch images');
+        throw new Error("Failed to fetch images");
       }
       const data = await response.json();
       setImages(data);
@@ -33,9 +35,12 @@ const Gallery = () => {
       <h1 className="text-2xl font-bold mb-6">Generated Images Gallery</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {images.map((image) => (
-          <div key={image._id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <img 
-              src={image.imageUrl} 
+          <div
+            key={image._id}
+            className="bg-white rounded-lg shadow-lg overflow-hidden"
+          >
+            <img
+              src={image.imageUrl}
               alt={image.prompt}
               className="w-full h-48 object-cover"
             />
@@ -50,8 +55,8 @@ const Gallery = () => {
           </div>
         ))}
       </div>
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="fixed bottom-6 right-6 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg"
       >
         Generate New Image
